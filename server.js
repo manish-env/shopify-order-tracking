@@ -102,12 +102,22 @@ function validateOrderNumber(orderNumber) {
 // ==== HELPER TO GET ORDER ====
 async function getOrder(orderNumber, email) {
   try {
-    // Search orders by name (order number, e.g. "#12345")
-    // Shopify order name is usually "#12345", so prepend "#" if not present
-    const name = orderNumber.startsWith('#') ? orderNumber : `#${orderNumber}`;
-
-    // REST API: List Orders with search filter (name/email) - include fulfillment_status and financial_status
-    const url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
+    let url;
+    
+    if (orderNumber && email) {
+      // Both provided - search by order number and filter by email
+      const name = orderNumber.startsWith('#') ? orderNumber : `#${orderNumber}`;
+      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
+    } else if (orderNumber) {
+      // Only order number provided
+      const name = orderNumber.startsWith('#') ? orderNumber : `#${orderNumber}`;
+      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
+    } else if (email) {
+      // Only email provided
+      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&email=${encodeURIComponent(email)}`;
+    } else {
+      throw new Error('Either orderNumber or email must be provided');
+    }
 
     const res = await axios.get(url, {
       headers: {
@@ -117,11 +127,21 @@ async function getOrder(orderNumber, email) {
       timeout: 10000 // 10 second timeout
     });
 
-    // Orders can be multiple if customer used same order number, filter by email too
     const orders = res.data.orders || [];
-    const order = orders.find(o => o.email && o.email.toLowerCase() === email.toLowerCase()) || orders[0];
-
-    return order;
+    
+    if (orders.length === 0) {
+      return null;
+    }
+    
+    // If both orderNumber and email provided, find exact match
+    if (orderNumber && email) {
+      const order = orders.find(o => o.email && o.email.toLowerCase() === email.toLowerCase());
+      return order || orders[0]; // Return first order if email doesn't match
+    }
+    
+    // If only one field provided, return the most recent order
+    return orders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+    
   } catch (error) {
     console.error('Error fetching order from Shopify:', error.message);
     throw error;
@@ -184,16 +204,17 @@ app.post('/track', async (req, res) => {
   try {
     const { orderNumber, email } = req.body;
 
-    // Input validation
-    if (!orderNumber || !email) {
+    // Input validation - at least one field must be provided
+    if (!orderNumber && !email) {
       return res.status(400).json({
         error: 'Missing required fields',
-        message: 'Both orderNumber and email are required',
+        message: 'Please provide either order number or email address',
         code: 'MISSING_FIELDS'
       });
     }
 
-    if (!validateOrderNumber(orderNumber)) {
+    // Validate order number if provided
+    if (orderNumber && !validateOrderNumber(orderNumber)) {
       return res.status(400).json({
         error: 'Invalid order number',
         message: 'Order number must be 1-50 characters and contain only letters, numbers, hyphens, underscores, and #',
@@ -201,7 +222,8 @@ app.post('/track', async (req, res) => {
       });
     }
 
-    if (!validateEmail(email)) {
+    // Validate email if provided
+    if (email && !validateEmail(email)) {
       return res.status(400).json({
         error: 'Invalid email address',
         message: 'Please provide a valid email address',
@@ -212,9 +234,13 @@ app.post('/track', async (req, res) => {
     const order = await getOrder(orderNumber, email);
     
     if (!order) {
+      const searchCriteria = [];
+      if (orderNumber) searchCriteria.push('order number');
+      if (email) searchCriteria.push('email');
+      
       return res.status(404).json({
         error: 'Order not found',
-        message: 'No order found with the provided order number and email',
+        message: `No order found with the provided ${searchCriteria.join(' and ')}`,
         code: 'ORDER_NOT_FOUND'
       });
     }
