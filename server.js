@@ -153,17 +153,7 @@ function determineOrderStatus(order) {
   console.log('Processing order:', order.name);
   console.log('Fulfillments:', JSON.stringify(order.fulfillments, null, 2));
   
-  // Check if order is delivered (closed_at is set when order is delivered)
-  if (order.closed_at) {
-    console.log('Order is delivered');
-    return {
-      status: 'Order Delivered',
-      trackingNumber: null,
-      deliveredAt: order.closed_at
-    };
-  }
-
-  // Check if tracking is added
+  // Check if tracking is added first (regardless of delivery status)
   const fulfillment = (order.fulfillments && order.fulfillments.length > 0) ? order.fulfillments[0] : null;
   console.log('First fulfillment:', fulfillment);
   
@@ -199,6 +189,16 @@ function determineOrderStatus(order) {
   }
   
   console.log('Final tracking number found:', trackingNumber);
+  
+  // Check if order is delivered (closed_at is set when order is delivered)
+  if (order.closed_at) {
+    console.log('Order is delivered');
+    return {
+      status: 'Order Delivered',
+      trackingNumber: trackingNumber, // Return the tracking number even for delivered orders
+      deliveredAt: order.closed_at
+    };
+  }
 
   if (trackingNumber) {
     console.log('Order has tracking number, status: In Transit');
