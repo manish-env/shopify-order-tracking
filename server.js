@@ -107,14 +107,14 @@ async function getOrder(orderNumber, email) {
     if (orderNumber && email) {
       // Both provided - search by order number and filter by email
       const name = orderNumber.startsWith('#') ? orderNumber : `#${orderNumber}`;
-      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments.tracking_number,fulfillments.tracking_company,fulfillments.tracking_url,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
+      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
     } else if (orderNumber) {
       // Only order number provided
       const name = orderNumber.startsWith('#') ? orderNumber : `#${orderNumber}`;
-      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments.tracking_number,fulfillments.tracking_company,fulfillments.tracking_url,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
+      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
     } else if (email) {
       // Only email provided
-      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments.tracking_number,fulfillments.tracking_company,fulfillments.tracking_url,fulfillment_status,financial_status,closed_at&email=${encodeURIComponent(email)}`;
+      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&email=${encodeURIComponent(email)}`;
     } else {
       throw new Error('Either orderNumber or email must be provided');
     }
@@ -167,8 +167,38 @@ function determineOrderStatus(order) {
   const fulfillment = (order.fulfillments && order.fulfillments.length > 0) ? order.fulfillments[0] : null;
   console.log('First fulfillment:', fulfillment);
   
-  const trackingNumber = fulfillment && fulfillment.tracking_number ? fulfillment.tracking_number : null;
-  console.log('Tracking number found:', trackingNumber);
+  // Try different ways to get tracking number
+  let trackingNumber = null;
+  if (fulfillment) {
+    // Check for tracking_numbers array (Shopify's actual structure)
+    if (fulfillment.tracking_numbers && fulfillment.tracking_numbers.length > 0) {
+      trackingNumber = fulfillment.tracking_numbers[0];
+      console.log('Tracking number from tracking_numbers array:', trackingNumber);
+    }
+    // Fallback to singular tracking_number
+    else if (fulfillment.tracking_number) {
+      trackingNumber = fulfillment.tracking_number;
+      console.log('Tracking number from tracking_number field:', trackingNumber);
+    }
+    // Fallback to trackingNumber (camelCase)
+    else if (fulfillment.trackingNumber) {
+      trackingNumber = fulfillment.trackingNumber;
+      console.log('Tracking number from trackingNumber field:', trackingNumber);
+    }
+    
+    // Also check if there are any line items with tracking
+    if (!trackingNumber && fulfillment.line_items) {
+      for (const item of fulfillment.line_items) {
+        if (item.tracking_number) {
+          trackingNumber = item.tracking_number;
+          console.log('Tracking number from line item:', trackingNumber);
+          break;
+        }
+      }
+    }
+  }
+  
+  console.log('Final tracking number found:', trackingNumber);
 
   if (trackingNumber) {
     console.log('Order has tracking number, status: In Transit');
@@ -208,6 +238,50 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development'
   });
+});
+
+// ==== DEBUG ENDPOINT ====
+app.get('/debug/:orderNumber', async (req, res) => {
+  try {
+    const { orderNumber } = req.params;
+    const order = await getOrder(orderNumber, null);
+    
+    if (!order) {
+      return res.status(404).json({
+        error: 'Order not found',
+        message: `No order found with order number: ${orderNumber}`
+      });
+    }
+    
+    res.json({
+      success: true,
+      order: {
+        name: order.name,
+        email: order.email,
+        created_at: order.created_at,
+        fulfillment_status: order.fulfillment_status,
+        financial_status: order.financial_status,
+        closed_at: order.closed_at,
+        fulfillments: order.fulfillments,
+        fulfillment_details: order.fulfillments ? order.fulfillments.map(f => ({
+          id: f.id,
+          tracking_numbers: f.tracking_numbers,
+          tracking_urls: f.tracking_urls,
+          tracking_company: f.tracking_company,
+          tracking_number: f.tracking_number,
+          trackingNumber: f.trackingNumber,
+          status: f.status
+        })) : []
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in debug endpoint:', error.message);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
 });
 
 // ==== TRACKING ENDPOINT ====
