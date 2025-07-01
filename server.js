@@ -107,14 +107,14 @@ async function getOrder(orderNumber, email) {
     if (orderNumber && email) {
       // Both provided - search by order number and filter by email
       const name = orderNumber.startsWith('#') ? orderNumber : `#${orderNumber}`;
-      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
+      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments.tracking_number,fulfillments.tracking_company,fulfillments.tracking_url,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
     } else if (orderNumber) {
       // Only order number provided
       const name = orderNumber.startsWith('#') ? orderNumber : `#${orderNumber}`;
-      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
+      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments.tracking_number,fulfillments.tracking_company,fulfillments.tracking_url,fulfillment_status,financial_status,closed_at&name=${encodeURIComponent(name)}`;
     } else if (email) {
       // Only email provided
-      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments,fulfillment_status,financial_status,closed_at&email=${encodeURIComponent(email)}`;
+      url = `https://${SHOPIFY_SHOP}/admin/api/2024-04/orders.json?status=any&fields=id,name,email,created_at,fulfillments.tracking_number,fulfillments.tracking_company,fulfillments.tracking_url,fulfillment_status,financial_status,closed_at&email=${encodeURIComponent(email)}`;
     } else {
       throw new Error('Either orderNumber or email must be provided');
     }
@@ -150,8 +150,12 @@ async function getOrder(orderNumber, email) {
 
 // ==== ORDER STATUS LOGIC ====
 function determineOrderStatus(order) {
+  console.log('Processing order:', order.name);
+  console.log('Fulfillments:', JSON.stringify(order.fulfillments, null, 2));
+  
   // Check if order is delivered (closed_at is set when order is delivered)
   if (order.closed_at) {
+    console.log('Order is delivered');
     return {
       status: 'Order Delivered',
       trackingNumber: null,
@@ -161,9 +165,13 @@ function determineOrderStatus(order) {
 
   // Check if tracking is added
   const fulfillment = (order.fulfillments && order.fulfillments.length > 0) ? order.fulfillments[0] : null;
+  console.log('First fulfillment:', fulfillment);
+  
   const trackingNumber = fulfillment && fulfillment.tracking_number ? fulfillment.tracking_number : null;
+  console.log('Tracking number found:', trackingNumber);
 
   if (trackingNumber) {
+    console.log('Order has tracking number, status: In Transit');
     return {
       status: 'In Transit',
       trackingNumber: trackingNumber,
@@ -173,14 +181,17 @@ function determineOrderStatus(order) {
 
   // Calculate hours since order was placed
   const hours = dayjs().diff(dayjs(order.created_at), 'hour');
+  console.log('Hours since order placed:', hours);
   
   if (hours < 48) {
+    console.log('Order is processing (less than 48 hours)');
     return {
       status: 'Order Processing',
       trackingNumber: null,
       deliveredAt: null
     };
   } else {
+    console.log('Order is in transit (more than 48 hours)');
     return {
       status: 'In Transit',
       trackingNumber: null,
@@ -246,6 +257,16 @@ app.post('/track', async (req, res) => {
     }
 
     const statusInfo = determineOrderStatus(order);
+    
+    console.log('Final status info:', statusInfo);
+    console.log('API response data:', {
+      orderNumber: order.name.replace('#', ''),
+      status: statusInfo.status,
+      trackingNumber: statusInfo.trackingNumber,
+      orderDate: order.created_at,
+      lastUpdated: new Date().toISOString(),
+      deliveredAt: statusInfo.deliveredAt
+    });
 
     res.json({
       success: true,
