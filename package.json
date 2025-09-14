@@ -1,24 +1,20 @@
 {
   "name": "shopify-tracking-api",
   "version": "1.0.0",
-  "description": "A production-ready API for Shopify order tracking logic",
-  "main": "server.js",
+  "description": "A production-ready Cloudflare Worker API for Shopify order tracking logic",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:prod": "wrangler deploy --env production",
+    "start": "wrangler dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "axios": "^1.6.8",
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
-    "dayjs": "^1.11.10",
-    "dotenv": "^16.5.0",
-    "express": "^4.18.2",
-    "express-rate-limit": "^7.5.1"
+    "dayjs": "^1.11.10"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "wrangler": "^3.78.12"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -29,7 +25,8 @@
     "tracking",
     "api",
     "orders",
-    "express"
+    "cloudflare",
+    "worker"
   ],
   "author": "",
   "license": "MIT"

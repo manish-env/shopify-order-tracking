@@ -1,0 +1,14 @@
+name = "shopify-tracking-api"
+main = "src/index.js"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+vars = { NODE_ENV = "production" }
+
+[env.development]
+vars = { NODE_ENV = "development" }
+
+# Secrets to be set via wrangler secret put
+# SHOPIFY_SHOP=your-store.myshopify.com
+# SHOPIFY_ACCESS_TOKEN=shpat_your_access_token_here
