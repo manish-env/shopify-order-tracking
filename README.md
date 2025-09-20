@@ -6,6 +6,7 @@ A production-ready REST API for tracking Shopify orders built as a Cloudflare Wo
 
 - **Order Tracking**: Search orders by order number and email
 - **Smart Status Logic**: Automatic status determination based on fulfillment and time
+- **Button Control**: Automatically disable/enable checkout buttons based on order status
 - **Rate Limiting**: Protection against abuse (100 requests per 15 minutes per IP)
 - **Input Validation**: Comprehensive validation for all inputs
 - **Error Handling**: Detailed error responses with error codes
@@ -102,9 +103,79 @@ POST /track
     "trackingNumber": "1Z999AA1234567890",
     "orderDate": "2024-01-10T15:30:00.000Z",
     "lastUpdated": "2024-01-15T10:30:00.000Z",
-    "deliveredAt": null
+    "deliveredAt": null,
+    "buttonsDisabled": true,
+    "disabledReason": "Order is in transit"
   }
 }
+```
+
+### Button Control
+```
+POST /button-control
+```
+
+**Request Body:**
+```json
+{
+  "orderNumber": "12345",
+  "email": "customer@example.com"
+}
+```
+
+**Response:** Returns HTML page with embedded JavaScript that automatically disables/enables buttons based on order status.
+
+### Shopify Button Control
+```
+POST /shopify-button-control
+```
+
+**Request Body:**
+```json
+{
+  "orderNumber": "12345",
+  "email": "customer@example.com"
+}
+```
+
+**Response:** Returns JavaScript code specifically designed for Shopify integration that:
+- Automatically disables **Add to Cart** buttons when order is in transit or delivered
+- Targets Shopify-specific button selectors
+- Shows Shopify-style notifications
+- Provides global control functions via `window.shopifyOrderTracking`
+- Works without modifying theme files
+- Handles dynamic content changes (AJAX-loaded buttons)
+
+### Code Injection (Iframe Method)
+```
+POST /inject
+```
+
+**Request Body:**
+```json
+{
+  "orderNumber": "12345",
+  "email": "customer@example.com"
+}
+```
+
+**Response:** Returns HTML page with embedded JavaScript that automatically injects button control into the parent page via iframe.
+
+**Features:**
+- **Zero Theme Modifications**: Works by loading an iframe that injects JavaScript
+- **Complete Isolation**: No need to modify any Shopify theme files
+- **Automatic Injection**: Script automatically controls buttons on parent page
+- **Iframe Integration**: Perfect for Shopify apps or page builders
+- **Cross-Domain Safe**: Works across different domains
+
+**Usage:**
+```html
+<!-- Add to any Shopify page -->
+<iframe 
+    src="https://your-api.workers.dev/inject?order=12345&email=customer@example.com"
+    style="width: 1px; height: 1px; border: none; position: absolute; left: -9999px;"
+    onload="console.log('Button control loaded')">
+</iframe>
 ```
 
 **Example Responses for Different Statuses:**
@@ -175,19 +246,25 @@ The API determines order status based on the following rules:
    - Order is less than 48 hours old
    - No tracking number has been added yet
    - Order is still being prepared for shipment
+   - **Add to Cart buttons: ENABLED**
 
 2. **"In Transit"**: 
    - Order is older than 48 hours OR tracking number has been added
    - Shows tracking number when available
    - Order is being shipped to customer
+   - **Add to Cart buttons: DISABLED**
 
 3. **"Order Delivered"**: 
    - Order has been marked as delivered in Shopify (closed_at is set)
    - Final status indicating successful delivery
+   - **Add to Cart buttons: DISABLED**
 
 **Status Flow:**
 ```
 Order Placed → Order Processing (0-48h) → In Transit → Order Delivered
+     ↓              ↓                        ↓              ↓
+Add to Cart      Add to Cart            Add to Cart    Add to Cart
+  ENABLED          ENABLED               DISABLED       DISABLED
 ```
 
 **Response includes:**
@@ -196,6 +273,8 @@ Order Placed → Order Processing (0-48h) → In Transit → Order Delivered
 - `orderDate`: When order was placed
 - `deliveredAt`: Delivery date (if delivered)
 - `lastUpdated`: API response timestamp
+- `buttonsDisabled`: Whether Add to Cart buttons should be disabled
+- `disabledReason`: Explanation for why buttons are disabled
 
 ## 🚀 Deployment on Cloudflare Workers
 

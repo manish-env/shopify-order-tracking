@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify Add to Cart Button Control - Integration Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .integration-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #007cba;
+        }
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #fff;
+            border: 2px dashed #dee2e6;
+            border-radius: 6px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        input[type="text"]:focus, input[type="email"]:focus {
+            outline: none;
+            border-color: #007cba;
+            box-shadow: 0 0 0 3px rgba(0, 124, 186, 0.1);
+        }
+        .btn {
+            background: #007cba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn:hover {
+            background: #005a87;
+            transform: translateY(-1px);
+        }
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.6;
+        }
+        .btn--secondary {
+            background: #6c757d;
+        }
+        .btn--secondary:hover {
+            background: #545b62;
+        }
+        .status-info {
+            background: #e8f4fd;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid #007cba;
+        }
+        .demo-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .demo-buttons button {
+            width: 100%;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛒 Shopify Add to Cart Button Control</h1>
+            <p>Disable Add to Cart buttons based on order status without modifying your theme</p>
+        </div>
+
+        <div class="integration-section">
+            <h2>📋 Integration Methods</h2>
+            
+            <h3>Method 1: Direct JavaScript Integration</h3>
+            <p>Add this code to your Shopify theme's <code>theme.liquid</code> file or any template:</p>
+            
+            <div class="code-block">
+&lt;script&gt;
+// Shopify Add to Cart Button Control
+(function() {
+    // Replace with your actual API URL
+    const API_URL = 'https://your-api-domain.workers.dev';
+    
+    // Function to check order status and control buttons
+    async function checkOrderAndControlButtons(orderNumber, email) {
+        try {
+            const response = await fetch(`${API_URL}/shopify-button-control`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    orderNumber: orderNumber,
+                    email: email
+                })
+            });
+            
+            if (response.ok) {
+                const script = await response.text();
+                // Execute the returned JavaScript
+                eval(script);
+            } else {
+                console.error('Failed to load button control script');
+            }
+        } catch (error) {
+            console.error('Error loading button control:', error);
+        }
+    }
+    
+    // Call this function when you want to check order status
+    // Example: checkOrderAndControlButtons('12345', 'customer@example.com');
+    
+    // Make function globally available
+    window.checkOrderStatus = checkOrderAndControlButtons;
+})();
+&lt;/script&gt;
+            </div>
+
+            <h3>Method 2: Dynamic Script Loading</h3>
+            <p>Load the script dynamically based on URL parameters or user input:</p>
+            
+            <div class="code-block">
+&lt;script&gt;
+// Load button control script dynamically
+function loadButtonControlScript(orderNumber, email) {
+    const script = document.createElement('script');
+    script.src = `${API_URL}/shopify-button-control`;
+    script.onload = function() {
+        // Script will automatically execute and control buttons
+    };
+    document.head.appendChild(script);
+}
+
+// Example usage
+if (window.location.search.includes('order=')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderNumber = urlParams.get('order');
+    const email = urlParams.get('email');
+    if (orderNumber) {
+        loadButtonControlScript(orderNumber, email);
+    }
+}
+&lt;/script&gt;
+            </div>
+
+            <h3>Method 3: Shopify App Integration</h3>
+            <p>For more advanced integration, you can create a Shopify app that injects this functionality:</p>
+            
+            <div class="code-block">
+// In your Shopify app's frontend code
+function injectButtonControl() {
+    const script = document.createElement('script');
+    script.textContent = `
+        // Your button control logic here
+        // This would be generated by your app's backend
+    `;
+    document.head.appendChild(script);
+}
+
+// Call when app loads
+document.addEventListener('DOMContentLoaded', injectButtonControl);
+            </div>
+        </div>
+
+        <div class="integration-section">
+            <h2>🎯 Button Selectors Targeted</h2>
+            <p>The system automatically finds and controls these Shopify button types:</p>
+            
+            <div class="code-block">
+// Primary Add to Cart buttons
+'.product-form__cart-submit'
+'.btn--full'
+'button[name="add"]'
+'input[name="add"]'
+'.product-form__item--submit button'
+'.product-form__item button[type="submit"]'
+'.product-form__buttons button'
+'.product-single__add-to-cart'
+'.add-to-cart'
+'.btn-add-to-cart'
+'.add-to-cart-btn'
+'.btn--primary'
+'.btn--secondary'
+'.btn-theme'
+
+// Shopify theme specific selectors
+'#AddToCart'
+'.product-form__item--submit'
+'.product-form__cart'
+'.product-form__buttons'
+'.product-single__add-to-cart-wrapper button'
+'.product-form__item--submit .btn'
+
+// Common Shopify button classes
+'.btn[type="submit"]'
+'button[type="submit"]'
+'.product-form button'
+'.product-single__add-to-cart button'
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🧪 Live Demo</h2>
+            <p>Test the button control functionality with sample data:</p>
+            
+            <div class="form-group">
+                <label for="demoOrderNumber">Order Number:</label>
+                <input type="text" id="demoOrderNumber" placeholder="Enter order number (e.g., 12345)" value="12345">
+            </div>
+            
+            <div class="form-group">
+                <label for="demoEmail">Email:</label>
+                <input type="email" id="demoEmail" placeholder="Enter email address" value="customer@example.com">
+            </div>
+            
+            <button class="btn" onclick="testButtonControl()">Test Button Control</button>
+            <button class="btn btn--secondary" onclick="resetButtons()">Reset Buttons</button>
+            
+            <div id="demoStatus" class="status-info" style="display: none;">
+                <h3>Demo Status</h3>
+                <div id="demoStatusContent"></div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🎮 Demo Buttons</h2>
+            <p>These buttons will be controlled by the API (simulating Shopify Add to Cart buttons):</p>
+            
+            <div class="demo-buttons">
+                <button class="product-form__cart-submit">Add to Cart</button>
+                <button class="btn--full">Add to Cart (Full)</button>
+                <button name="add">Add to Cart (Named)</button>
+                <button class="product-form__item--submit">Submit</button>
+                <button class="btn--primary">Primary Button</button>
+                <button class="btn--secondary">Secondary Button</button>
+                <button class="btn-theme">Theme Button</button>
+                <button class="add-to-cart">Add to Cart</button>
+            </div>
+        </div>
+
+        <div class="integration-section">
+            <h2>⚙️ Configuration</h2>
+            
+            <div class="alert alert-info">
+                <strong>API Endpoints:</strong>
+                <ul>
+                    <li><code>POST /shopify-button-control</code> - Returns JavaScript for button control</li>
+                    <li><code>POST /track</code> - Returns JSON with order status and button state</li>
+                    <li><code>POST /button-control</code> - Returns HTML page with embedded JavaScript</li>
+                </ul>
+            </div>
+            
+            <div class="alert alert-warning">
+                <strong>Important:</strong> Replace <code>https://your-api-domain.workers.dev</code> with your actual API domain after deployment.
+            </div>
+        </div>
+
+        <div class="integration-section">
+            <h2>📱 Usage Examples</h2>
+            
+            <h3>Basic Usage</h3>
+            <div class="code-block">
+// Check order status and control buttons
+window.checkOrderStatus('12345', 'customer@example.com');
+            </div>
+            
+            <h3>With URL Parameters</h3>
+            <div class="code-block">
+// Check for order in URL parameters
+const urlParams = new URLSearchParams(window.location.search);
+const orderNumber = urlParams.get('order');
+const email = urlParams.get('email');
+
+if (orderNumber) {
+    window.checkOrderStatus(orderNumber, email);
+}
+            </div>
+            
+            <h3>Manual Control</h3>
+            <div class="code-block">
+// After script loads, you can manually control buttons
+if (window.shopifyOrderTracking) {
+    window.shopifyOrderTracking.disableButtons();
+    window.shopifyOrderTracking.enableButtons();
+}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Demo functionality
+        const API_BASE_URL = 'https://your-api-domain.workers.dev'; // Replace with your actual API URL
+        
+        async function testButtonControl() {
+            const orderNumber = document.getElementById('demoOrderNumber').value;
+            const email = document.getElementById('demoEmail').value;
+            
+            if (!orderNumber && !email) {
+                alert('Please enter either order number or email');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/shopify-button-control`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        orderNumber: orderNumber || null,
+                        email: email || null
+                    })
+                });
+                
+                if (response.ok) {
+                    const script = await response.text();
+                    // Execute the returned JavaScript
+                    eval(script);
+                    
+                    // Show status
+                    showDemoStatus('Script loaded successfully! Check console for details.');
+                } else {
+                    const error = await response.json();
+                    showDemoStatus('Error: ' + error.error, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showDemoStatus('Network error: ' + error.message, 'error');
+            }
+        }
+        
+        function resetButtons() {
+            const buttonSelectors = [
+                '.product-form__cart-submit',
+                '.btn--full',
+                'button[name="add"]',
+                '.product-form__item--submit',
+                '.btn--primary',
+                '.btn--secondary',
+                '.btn-theme',
+                '.add-to-cart'
+            ];
+            
+            buttonSelectors.forEach(selector => {
+                const buttons = document.querySelectorAll(selector);
+                buttons.forEach(button => {
+                    button.disabled = false;
+                    button.style.opacity = '1';
+                    button.style.cursor = 'pointer';
+                    button.title = '';
+                    button.classList.remove('btn--disabled-by-tracking');
+                });
+            });
+            
+            showDemoStatus('All buttons have been reset!', 'success');
+        }
+        
+        function showDemoStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('demoStatus');
+            const contentDiv = document.getElementById('demoStatusContent');
+            
+            contentDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            statusDiv.style.display = 'block';
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Shopify Button Control Demo loaded');
+            console.log('Make sure to update API_BASE_URL with your actual API domain');
+        });
+    </script>
+</body>
+</html>

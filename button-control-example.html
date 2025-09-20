@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Control Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #005a87;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .demo-buttons {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+        }
+        .demo-buttons h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Shopify Order Tracking - Button Control Example</h1>
+    
+    <div class="form-group">
+        <label for="orderNumber">Order Number:</label>
+        <input type="text" id="orderNumber" placeholder="Enter order number (e.g., 12345)">
+    </div>
+    
+    <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="email" id="email" placeholder="Enter email address">
+    </div>
+    
+    <button onclick="checkOrderStatus()">Check Order Status & Control Buttons</button>
+    <button onclick="openButtonControlPage()">Open Button Control Page</button>
+    
+    <div id="status" class="status" style="display: none;">
+        <h3>Order Status</h3>
+        <div id="statusContent"></div>
+    </div>
+    
+    <div class="demo-buttons">
+        <h3>Demo Buttons (These will be controlled by the API)</h3>
+        <button class="btn-cart-checkout">Checkout Button</button>
+        <button class="js-cart-btn-checkout">Cart Checkout</button>
+        <button class="btn-checkout">Checkout</button>
+        <button class="product-form__cart-submit">Add to Cart</button>
+        <button class="btn-theme">Theme Button</button>
+        <button name="checkout">Named Checkout</button>
+    </div>
+    
+    <div class="demo-buttons">
+        <h3>Manual Control</h3>
+        <button onclick="disableAllButtons()">Disable All Buttons</button>
+        <button onclick="enableAllButtons()">Enable All Buttons</button>
+        <button onclick="checkButtonStatus()">Check Button Status</button>
+    </div>
+
+    <script>
+        // Replace with your actual API URL
+        const API_BASE_URL = 'https://your-api-domain.workers.dev';
+        
+        async function checkOrderStatus() {
+            const orderNumber = document.getElementById('orderNumber').value;
+            const email = document.getElementById('email').value;
+            
+            if (!orderNumber && !email) {
+                alert('Please enter either order number or email');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/track`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        orderNumber: orderNumber || null,
+                        email: email || null
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayOrderStatus(data.data);
+                    controlButtons(data.data);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Network error occurred');
+            }
+        }
+        
+        function displayOrderStatus(orderData) {
+            const statusDiv = document.getElementById('status');
+            const contentDiv = document.getElementById('statusContent');
+            
+            contentDiv.innerHTML = `
+                <p><strong>Order Number:</strong> ${orderData.orderNumber}</p>
+                <p><strong>Status:</strong> ${orderData.status}</p>
+                <p><strong>Tracking Number:</strong> ${orderData.trackingNumber || 'N/A'}</p>
+                <p><strong>Order Date:</strong> ${new Date(orderData.orderDate).toLocaleString()}</p>
+                <p><strong>Buttons Disabled:</strong> ${orderData.buttonsDisabled ? 'YES' : 'NO'}</p>
+                <p><strong>Reason:</strong> ${orderData.disabledReason || 'N/A'}</p>
+            `;
+            
+            statusDiv.style.display = 'block';
+        }
+        
+        function controlButtons(orderData) {
+            const buttonSelectors = [
+                '.btn-cart-checkout',
+                '.js-cart-btn-checkout', 
+                '.btn-checkout',
+                '.product-form__cart-submit',
+                '.btn-theme',
+                'button[name="checkout"]'
+            ];
+            
+            buttonSelectors.forEach(selector => {
+                const buttons = document.querySelectorAll(selector);
+                buttons.forEach(button => {
+                    if (orderData.buttonsDisabled) {
+                        button.disabled = true;
+                        button.style.opacity = '0.6';
+                        button.style.cursor = 'not-allowed';
+                        button.title = orderData.disabledReason || 'Button disabled due to order status';
+                    } else {
+                        button.disabled = false;
+                        button.style.opacity = '1';
+                        button.style.cursor = 'pointer';
+                        button.title = '';
+                    }
+                });
+            });
+            
+            // Show notification
+            if (orderData.buttonsDisabled) {
+                showNotification(`Order Status: ${orderData.status} - ${orderData.disabledReason || 'Checkout buttons have been disabled'}`);
+            }
+        }
+        
+        function openButtonControlPage() {
+            const orderNumber = document.getElementById('orderNumber').value;
+            const email = document.getElementById('email').value;
+            
+            if (!orderNumber && !email) {
+                alert('Please enter either order number or email');
+                return;
+            }
+            
+            // Open the button control page in a new window
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `${API_BASE_URL}/button-control`;
+            form.target = '_blank';
+            
+            const orderInput = document.createElement('input');
+            orderInput.type = 'hidden';
+            orderInput.name = 'orderNumber';
+            orderInput.value = orderNumber || '';
+            
+            const emailInput = document.createElement('input');
+            emailInput.type = 'hidden';
+            emailInput.name = 'email';
+            emailInput.value = email || '';
+            
+            form.appendChild(orderInput);
+            form.appendChild(emailInput);
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
+        
+        function disableAllButtons() {
+            const buttonSelectors = [
+                '.btn-cart-checkout',
+                '.js-cart-btn-checkout', 
+                '.btn-checkout',
+                '.product-form__cart-submit',
+                '.btn-theme',
+                'button[name="checkout"]'
+            ];
+            
+            let count = 0;
+            buttonSelectors.forEach(selector => {
+                const buttons = document.querySelectorAll(selector);
+                buttons.forEach(button => {
+                    button.disabled = true;
+                    button.style.opacity = '0.6';
+                    button.style.cursor = 'not-allowed';
+                    button.title = 'Manually disabled';
+                    count++;
+                });
+            });
+            
+            showNotification(`Disabled ${count} buttons manually`);
+        }
+        
+        function enableAllButtons() {
+            const buttonSelectors = [
+                '.btn-cart-checkout',
+                '.js-cart-btn-checkout', 
+                '.btn-checkout',
+                '.product-form__cart-submit',
+                '.btn-theme',
+                'button[name="checkout"]'
+            ];
+            
+            let count = 0;
+            buttonSelectors.forEach(selector => {
+                const buttons = document.querySelectorAll(selector);
+                buttons.forEach(button => {
+                    button.disabled = false;
+                    button.style.opacity = '1';
+                    button.style.cursor = 'pointer';
+                    button.title = '';
+                    count++;
+                });
+            });
+            
+            showNotification(`Enabled ${count} buttons manually`);
+        }
+        
+        function checkButtonStatus() {
+            const buttonSelectors = [
+                '.btn-cart-checkout',
+                '.js-cart-btn-checkout', 
+                '.btn-checkout',
+                '.product-form__cart-submit',
+                '.btn-theme',
+                'button[name="checkout"]'
+            ];
+            
+            let disabledCount = 0;
+            let totalCount = 0;
+            
+            buttonSelectors.forEach(selector => {
+                const buttons = document.querySelectorAll(selector);
+                buttons.forEach(button => {
+                    totalCount++;
+                    if (button.disabled) {
+                        disabledCount++;
+                    }
+                });
+            });
+            
+            showNotification(`Button Status: ${disabledCount}/${totalCount} buttons are disabled`);
+        }
+        
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #007cba; color: white; padding: 15px; border-radius: 5px; z-index: 10000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 300px;';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Button Control Example loaded');
+            console.log('Make sure to update API_BASE_URL with your actual API domain');
+        });
+    </script>
+</body>
+</html>

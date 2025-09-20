@@ -197,7 +197,9 @@ function determineOrderStatus(order) {
     return {
       status: 'Order Delivered',
       trackingNumber: trackingNumber, // Return the tracking number even for delivered orders
-      deliveredAt: order.closed_at
+      deliveredAt: order.closed_at,
+      buttonsDisabled: true,
+      disabledReason: 'Order has been delivered'
     };
   }
 
@@ -206,7 +208,9 @@ function determineOrderStatus(order) {
     return {
       status: 'In Transit',
       trackingNumber: trackingNumber,
-      deliveredAt: null
+      deliveredAt: null,
+      buttonsDisabled: true,
+      disabledReason: 'Order is in transit'
     };
   }
 
@@ -219,14 +223,18 @@ function determineOrderStatus(order) {
     return {
       status: 'Order Processing',
       trackingNumber: null,
-      deliveredAt: null
+      deliveredAt: null,
+      buttonsDisabled: false,
+      disabledReason: null
     };
   } else {
     console.log('Order is in transit (more than 48 hours)');
     return {
       status: 'In Transit',
       trackingNumber: null,
-      deliveredAt: null
+      deliveredAt: null,
+      buttonsDisabled: true,
+      disabledReason: 'Order is in transit (48+ hours)'
     };
   }
 }
@@ -284,6 +292,1006 @@ async function handleDebug(orderNumber, env) {
     return createErrorResponse(
       'Internal server error',
       error.message,
+      'INTERNAL_ERROR',
+      500
+    );
+  }
+}
+
+// Code injection endpoint - injects button control directly into any page
+async function handleCodeInjection(request, env) {
+  try {
+    const body = await request.json();
+    const { orderNumber, email, targetUrl } = body;
+
+    // Input validation - at least one field must be provided
+    if (!orderNumber && !email) {
+      return createErrorResponse(
+        'Missing required fields',
+        'Please provide either order number or email address',
+        'MISSING_FIELDS'
+      );
+    }
+
+    // Validate order number if provided
+    if (orderNumber && !validateOrderNumber(orderNumber)) {
+      return createErrorResponse(
+        'Invalid order number',
+        'Order number must be 1-50 characters and contain only letters, numbers, hyphens, underscores, and #',
+        'INVALID_ORDER_NUMBER'
+      );
+    }
+
+    // Validate email if provided
+    if (email && !validateEmail(email)) {
+      return createErrorResponse(
+        'Invalid email address',
+        'Please provide a valid email address',
+        'INVALID_EMAIL'
+      );
+    }
+
+    const order = await getOrder(orderNumber, email, env);
+    
+    if (!order) {
+      const searchCriteria = [];
+      if (orderNumber) searchCriteria.push('order number');
+      if (email) searchCriteria.push('email');
+      
+      return createErrorResponse(
+        'Order not found',
+        `No order found with the provided ${searchCriteria.join(' and ')}`,
+        'ORDER_NOT_FOUND',
+        404
+      );
+    }
+
+    const statusInfo = determineOrderStatus(order);
+    
+    // Create HTML page that will inject the button control script
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Button Control Injection</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            background: #e8f4fd;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid #007cba;
+        }
+        .success { color: #28a745; }
+        .warning { color: #ffc107; }
+        .error { color: #dc3545; }
+        .btn {
+            background: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background: #005a87; }
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 Button Control Injection</h1>
+        
+        <div class="status">
+            <h3>Order Status</h3>
+            <p><strong>Order Number:</strong> ${order.name.replace('#', '')}</p>
+            <p><strong>Status:</strong> <span class="${statusInfo.buttonsDisabled ? 'warning' : 'success'}">${statusInfo.status}</span></p>
+            <p><strong>Buttons Disabled:</strong> <span class="${statusInfo.buttonsDisabled ? 'error' : 'success'}">${statusInfo.buttonsDisabled ? 'YES' : 'NO'}</span></p>
+            <p><strong>Reason:</strong> ${statusInfo.disabledReason || 'N/A'}</p>
+            ${statusInfo.trackingNumber ? `<p><strong>Tracking Number:</strong> ${statusInfo.trackingNumber}</p>` : ''}
+        </div>
+
+        <div class="status">
+            <h3>Injection Status</h3>
+            <p id="injectionStatus">Preparing to inject button control script...</p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <button class="btn" onclick="injectScript()">Inject Button Control</button>
+            <button class="btn" onclick="testButtons()">Test Buttons</button>
+            <button class="btn" onclick="resetButtons()">Reset Buttons</button>
+        </div>
+
+        <div class="status">
+            <h3>Demo Buttons (These will be controlled)</h3>
+            <button class="btn product-form__cart-submit">Add to Cart</button>
+            <button class="btn btn--full">Add to Cart (Full)</button>
+            <button class="btn" name="add">Add to Cart (Named)</button>
+            <button class="btn btn--primary">Primary Button</button>
+            <button class="btn btn--secondary">Secondary Button</button>
+        </div>
+
+        <div class="status">
+            <h3>Instructions</h3>
+            <ol>
+                <li>Click "Inject Button Control" to inject the script into this page</li>
+                <li>Click "Test Buttons" to see the button control in action</li>
+                <li>Click "Reset Buttons" to restore all buttons</li>
+                <li>Use this same URL in an iframe on your Shopify store</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Order data from API
+        const orderData = {
+            orderNumber: '${order.name.replace('#', '')}',
+            status: '${statusInfo.status}',
+            trackingNumber: '${statusInfo.trackingNumber || ''}',
+            buttonsDisabled: ${statusInfo.buttonsDisabled},
+            disabledReason: '${statusInfo.disabledReason || ''}'
+        };
+
+        // Button control script
+        const buttonControlScript = \`
+        (function() {
+            'use strict';
+            
+            console.log('Button Control Injected: Order Status - \${orderData.status}');
+            
+            // Shopify-specific button selectors
+            const ADD_TO_CART_SELECTORS = [
+                '.product-form__cart-submit',
+                '.btn--full',
+                'button[name="add"]',
+                'input[name="add"]',
+                '.product-form__item--submit button',
+                '.product-form__item button[type="submit"]',
+                '.product-form__buttons button',
+                '.product-single__add-to-cart',
+                '.add-to-cart',
+                '.btn-add-to-cart',
+                '.add-to-cart-btn',
+                '.btn--primary',
+                '.btn--secondary',
+                '.btn-theme',
+                '#AddToCart',
+                '.product-form__item--submit',
+                '.product-form__cart',
+                '.product-form__buttons',
+                '.product-single__add-to-cart-wrapper button',
+                '.product-form__item--submit .btn',
+                '.btn[type="submit"]',
+                'button[type="submit"]',
+                '.product-form button',
+                '.product-single__add-to-cart button'
+            ];
+            
+            // Checkout button selectors
+            const CHECKOUT_SELECTORS = [
+                '.btn-cart-checkout',
+                '.js-cart-btn-checkout',
+                '.btn-checkout',
+                '.checkout-btn',
+                'button[name="checkout"]',
+                'input[name="checkout"]',
+                '.cart__checkout',
+                '.cart-checkout'
+            ];
+            
+            // Function to disable buttons
+            function disableButtons() {
+                let disabledCount = 0;
+                
+                ADD_TO_CART_SELECTORS.forEach(selector => {
+                    const buttons = document.querySelectorAll(selector);
+                    buttons.forEach(button => {
+                        if (!button.disabled && !button.classList.contains('btn--sold-out')) {
+                            button.disabled = true;
+                            button.style.opacity = '0.6';
+                            button.style.cursor = 'not-allowed';
+                            button.title = '\${orderData.disabledReason || 'Add to Cart disabled due to order status'}';
+                            button.classList.add('btn--disabled-by-tracking');
+                            
+                            // Change button text
+                            const textElement = button.querySelector('span, .btn__text, .button-text');
+                            if (textElement) {
+                                textElement.dataset.originalText = textElement.textContent;
+                                textElement.textContent = '\${orderData.status === 'Order Delivered' ? 'Order Delivered' : 'Order In Transit'}';
+                            }
+                            
+                            disabledCount++;
+                        }
+                    });
+                });
+                
+                CHECKOUT_SELECTORS.forEach(selector => {
+                    const buttons = document.querySelectorAll(selector);
+                    buttons.forEach(button => {
+                        if (!button.disabled) {
+                            button.disabled = true;
+                            button.style.opacity = '0.6';
+                            button.style.cursor = 'not-allowed';
+                            button.title = '\${orderData.disabledReason || 'Checkout disabled due to order status'}';
+                            button.classList.add('btn--disabled-by-tracking');
+                        }
+                    });
+                });
+                
+                console.log('Disabled ' + disabledCount + ' buttons');
+                return disabledCount;
+            }
+            
+            // Function to enable buttons
+            function enableButtons() {
+                let enabledCount = 0;
+                
+                [...ADD_TO_CART_SELECTORS, ...CHECKOUT_SELECTORS].forEach(selector => {
+                    const buttons = document.querySelectorAll(selector);
+                    buttons.forEach(button => {
+                        if (button.classList.contains('btn--disabled-by-tracking')) {
+                            button.disabled = false;
+                            button.style.opacity = '1';
+                            button.style.cursor = 'pointer';
+                            button.title = '';
+                            button.classList.remove('btn--disabled-by-tracking');
+                            
+                            // Restore original text
+                            const textElement = button.querySelector('span, .btn__text, .button-text');
+                            if (textElement && textElement.dataset.originalText) {
+                                textElement.textContent = textElement.dataset.originalText;
+                            }
+                            
+                            enabledCount++;
+                        }
+                    });
+                });
+                
+                console.log('Enabled ' + enabledCount + ' buttons');
+                return enabledCount;
+            }
+            
+            // Control buttons based on order status
+            if (\${orderData.buttonsDisabled}) {
+                disableButtons();
+                showNotification('\${orderData.status}', '\${orderData.disabledReason || 'Add to Cart is currently disabled for this order'}');
+            } else {
+                enableButtons();
+            }
+            
+            // Show notification
+            function showNotification(title, message) {
+                const existingNotification = document.querySelector('.shopify-tracking-notification');
+                if (existingNotification) {
+                    existingNotification.remove();
+                }
+                
+                const notification = document.createElement('div');
+                notification.className = 'shopify-tracking-notification';
+                notification.style.cssText = \`
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #ffc107;
+                    color: #000;
+                    padding: 15px 20px;
+                    border-radius: 4px;
+                    z-index: 10000;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                    max-width: 350px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    font-size: 14px;
+                    line-height: 1.4;
+                    border-left: 4px solid #ff9800;
+                \`;
+                
+                notification.innerHTML = \`
+                    <div style="font-weight: 600; margin-bottom: 5px;">\${title}</div>
+                    <div style="font-size: 13px; opacity: 0.9;">\${message}</div>
+                \`;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.style.opacity = '0';
+                        notification.style.transform = 'translateX(100%)';
+                        notification.style.transition = 'all 0.3s ease';
+                        setTimeout(() => {
+                            if (notification.parentNode) {
+                                notification.parentNode.removeChild(notification);
+                            }
+                        }, 300);
+                    }
+                }, 8000);
+            }
+            
+            // Expose functions globally
+            window.shopifyOrderTracking = {
+                disableButtons: disableButtons,
+                enableButtons: enableButtons,
+                orderStatus: '\${orderData.status}',
+                buttonsDisabled: \${orderData.buttonsDisabled},
+                trackingNumber: '\${orderData.trackingNumber}',
+                orderNumber: '\${orderData.orderNumber}'
+            };
+            
+            // Listen for dynamic content changes
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                        const newButtons = document.querySelectorAll(ADD_TO_CART_SELECTORS.join(', '));
+                        newButtons.forEach(button => {
+                            if (!button.classList.contains('btn--disabled-by-tracking') && 
+                                !button.disabled && 
+                                !button.classList.contains('btn--sold-out')) {
+                                if (\${orderData.buttonsDisabled}) {
+                                    button.disabled = true;
+                                    button.style.opacity = '0.6';
+                                    button.style.cursor = 'not-allowed';
+                                    button.title = '\${orderData.disabledReason || 'Add to Cart disabled due to order status'}';
+                                    button.classList.add('btn--disabled-by-tracking');
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+            
+            console.log('Button Control Script Injected Successfully');
+        })();
+        \`;
+
+        // Functions for the demo page
+        function injectScript() {
+            try {
+                eval(buttonControlScript);
+                document.getElementById('injectionStatus').innerHTML = '<span class="success">✅ Button control script injected successfully!</span>';
+                console.log('Button control script injected');
+            } catch (error) {
+                document.getElementById('injectionStatus').innerHTML = '<span class="error">❌ Error injecting script: ' + error.message + '</span>';
+                console.error('Error injecting script:', error);
+            }
+        }
+
+        function testButtons() {
+            if (window.shopifyOrderTracking) {
+                if (orderData.buttonsDisabled) {
+                    window.shopifyOrderTracking.disableButtons();
+                    document.getElementById('injectionStatus').innerHTML = '<span class="warning">⚠️ Buttons disabled based on order status</span>';
+                } else {
+                    window.shopifyOrderTracking.enableButtons();
+                    document.getElementById('injectionStatus').innerHTML = '<span class="success">✅ Buttons enabled based on order status</span>';
+                }
+            } else {
+                document.getElementById('injectionStatus').innerHTML = '<span class="error">❌ Button control script not loaded. Click "Inject Button Control" first.</span>';
+            }
+        }
+
+        function resetButtons() {
+            if (window.shopifyOrderTracking) {
+                window.shopifyOrderTracking.enableButtons();
+                document.getElementById('injectionStatus').innerHTML = '<span class="success">✅ All buttons reset to enabled state</span>';
+            } else {
+                // Manual reset
+                const buttonSelectors = [
+                    '.product-form__cart-submit',
+                    '.btn--full',
+                    'button[name="add"]',
+                    '.btn--primary',
+                    '.btn--secondary'
+                ];
+                
+                buttonSelectors.forEach(selector => {
+                    const buttons = document.querySelectorAll(selector);
+                    buttons.forEach(button => {
+                        button.disabled = false;
+                        button.style.opacity = '1';
+                        button.style.cursor = 'pointer';
+                        button.title = '';
+                        button.classList.remove('btn--disabled-by-tracking');
+                    });
+                });
+                
+                document.getElementById('injectionStatus').innerHTML = '<span class="success">✅ All buttons manually reset</span>';
+            }
+        }
+
+        // Auto-inject on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                injectScript();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>`;
+
+    return new Response(html, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        ...handleCORS(request)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in code injection endpoint:', error.message);
+    return createErrorResponse(
+      'Internal server error',
+      'An unexpected error occurred while processing your request',
+      'INTERNAL_ERROR',
+      500
+    );
+  }
+}
+
+// Shopify-specific button control endpoint - returns JavaScript for Shopify integration
+async function handleShopifyButtonControl(request, env) {
+  try {
+    const body = await request.json();
+    const { orderNumber, email } = body;
+
+    // Input validation - at least one field must be provided
+    if (!orderNumber && !email) {
+      return createErrorResponse(
+        'Missing required fields',
+        'Please provide either order number or email address',
+        'MISSING_FIELDS'
+      );
+    }
+
+    // Validate order number if provided
+    if (orderNumber && !validateOrderNumber(orderNumber)) {
+      return createErrorResponse(
+        'Invalid order number',
+        'Order number must be 1-50 characters and contain only letters, numbers, hyphens, underscores, and #',
+        'INVALID_ORDER_NUMBER'
+      );
+    }
+
+    // Validate email if provided
+    if (email && !validateEmail(email)) {
+      return createErrorResponse(
+        'Invalid email address',
+        'Please provide a valid email address',
+        'INVALID_EMAIL'
+      );
+    }
+
+    const order = await getOrder(orderNumber, email, env);
+    
+    if (!order) {
+      const searchCriteria = [];
+      if (orderNumber) searchCriteria.push('order number');
+      if (email) searchCriteria.push('email');
+      
+      return createErrorResponse(
+        'Order not found',
+        `No order found with the provided ${searchCriteria.join(' and ')}`,
+        'ORDER_NOT_FOUND',
+        404
+      );
+    }
+
+    const statusInfo = determineOrderStatus(order);
+    
+    // Create JavaScript code for Shopify integration
+    const jsCode = `
+// Shopify Add to Cart Button Control Script
+// Generated by Shopify Order Tracking API
+(function() {
+    'use strict';
+    
+    console.log('Shopify Button Control: Order Status - ${statusInfo.status}');
+    
+    // Shopify-specific button selectors
+    const ADD_TO_CART_SELECTORS = [
+        // Primary Add to Cart buttons
+        '.product-form__cart-submit',
+        '.btn--full',
+        'button[name="add"]',
+        'input[name="add"]',
+        '.product-form__item--submit button',
+        '.product-form__item button[type="submit"]',
+        '.product-form__buttons button',
+        '.product-single__add-to-cart',
+        '.add-to-cart',
+        '.btn-add-to-cart',
+        '.add-to-cart-btn',
+        '.btn--primary',
+        '.btn--secondary',
+        '.btn-theme',
+        // Shopify theme specific selectors
+        '#AddToCart',
+        '.product-form__item--submit',
+        '.product-form__cart',
+        '.product-form__buttons',
+        '.product-single__add-to-cart-wrapper button',
+        '.product-form__item--submit .btn',
+        // Common Shopify button classes
+        '.btn[type="submit"]',
+        'button[type="submit"]',
+        '.product-form button',
+        '.product-single__add-to-cart button'
+    ];
+    
+    // Checkout button selectors (secondary)
+    const CHECKOUT_SELECTORS = [
+        '.btn-cart-checkout',
+        '.js-cart-btn-checkout',
+        '.btn-checkout',
+        '.checkout-btn',
+        'button[name="checkout"]',
+        'input[name="checkout"]',
+        '.cart__checkout',
+        '.cart-checkout'
+    ];
+    
+    // Function to disable buttons
+    function disableButtons() {
+        let disabledCount = 0;
+        
+        // Disable Add to Cart buttons first (primary focus)
+        ADD_TO_CART_SELECTORS.forEach(selector => {
+            const buttons = document.querySelectorAll(selector);
+            buttons.forEach(button => {
+                if (!button.disabled && !button.classList.contains('btn--sold-out')) {
+                    button.disabled = true;
+                    button.style.opacity = '0.6';
+                    button.style.cursor = 'not-allowed';
+                    button.title = '${statusInfo.disabledReason || 'Add to Cart disabled due to order status'}';
+                    
+                    // Add visual indicator
+                    button.classList.add('btn--disabled-by-tracking');
+                    
+                    // Change button text if possible
+                    const textElement = button.querySelector('span, .btn__text, .button-text');
+                    if (textElement) {
+                        textElement.textContent = '${statusInfo.status === 'Order Delivered' ? 'Order Delivered' : 'Order In Transit'}';
+                    }
+                    
+                    disabledCount++;
+                }
+            });
+        });
+        
+        // Also disable checkout buttons
+        CHECKOUT_SELECTORS.forEach(selector => {
+            const buttons = document.querySelectorAll(selector);
+            buttons.forEach(button => {
+                if (!button.disabled) {
+                    button.disabled = true;
+                    button.style.opacity = '0.6';
+                    button.style.cursor = 'not-allowed';
+                    button.title = '${statusInfo.disabledReason || 'Checkout disabled due to order status'}';
+                    button.classList.add('btn--disabled-by-tracking');
+                }
+            });
+        });
+        
+        console.log('Shopify Button Control: Disabled ' + disabledCount + ' Add to Cart buttons');
+        return disabledCount;
+    }
+    
+    // Function to enable buttons
+    function enableButtons() {
+        let enabledCount = 0;
+        
+        [...ADD_TO_CART_SELECTORS, ...CHECKOUT_SELECTORS].forEach(selector => {
+            const buttons = document.querySelectorAll(selector);
+            buttons.forEach(button => {
+                if (button.classList.contains('btn--disabled-by-tracking')) {
+                    button.disabled = false;
+                    button.style.opacity = '1';
+                    button.style.cursor = 'pointer';
+                    button.title = '';
+                    button.classList.remove('btn--disabled-by-tracking');
+                    
+                    // Restore original button text
+                    const textElement = button.querySelector('span, .btn__text, .button-text');
+                    if (textElement && textElement.dataset.originalText) {
+                        textElement.textContent = textElement.dataset.originalText;
+                    }
+                    
+                    enabledCount++;
+                }
+            });
+        });
+        
+        console.log('Shopify Button Control: Enabled ' + enabledCount + ' buttons');
+        return enabledCount;
+    }
+    
+    // Store original button text before disabling
+    function storeOriginalText() {
+        ADD_TO_CART_SELECTORS.forEach(selector => {
+            const buttons = document.querySelectorAll(selector);
+            buttons.forEach(button => {
+                const textElement = button.querySelector('span, .btn__text, .button-text');
+                if (textElement && !textElement.dataset.originalText) {
+                    textElement.dataset.originalText = textElement.textContent;
+                }
+            });
+        });
+    }
+    
+    // Control buttons based on order status
+    if (${statusInfo.buttonsDisabled}) {
+        storeOriginalText();
+        disableButtons();
+        
+        // Show Shopify-style notification
+        showShopifyNotification('${statusInfo.status}', '${statusInfo.disabledReason || 'Add to Cart is currently disabled for this order'}');
+    } else {
+        enableButtons();
+    }
+    
+    // Show notification in Shopify style
+    function showShopifyNotification(title, message) {
+        // Remove existing notifications
+        const existingNotification = document.querySelector('.shopify-tracking-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        const notification = document.createElement('div');
+        notification.className = 'shopify-tracking-notification';
+        notification.style.cssText = \`
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ffc107;
+            color: #000;
+            padding: 15px 20px;
+            border-radius: 4px;
+            z-index: 10000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-width: 350px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            border-left: 4px solid #ff9800;
+        \`;
+        
+        notification.innerHTML = \`
+            <div style="font-weight: 600; margin-bottom: 5px;">\${title}</div>
+            <div style="font-size: 13px; opacity: 0.9;">\${message}</div>
+        \`;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 8 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                notification.style.transition = 'all 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 8000);
+    }
+    
+    // Expose functions globally for manual control
+    window.shopifyOrderTracking = {
+        disableButtons: disableButtons,
+        enableButtons: enableButtons,
+        orderStatus: '${statusInfo.status}',
+        buttonsDisabled: ${statusInfo.buttonsDisabled},
+        trackingNumber: '${statusInfo.trackingNumber || ''}',
+        orderNumber: '${order.name.replace('#', '')}'
+    };
+    
+    // Listen for dynamic content changes (for AJAX-loaded content)
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                // Check if new buttons were added
+                const newButtons = document.querySelectorAll(ADD_TO_CART_SELECTORS.join(', '));
+                newButtons.forEach(button => {
+                    if (!button.classList.contains('btn--disabled-by-tracking') && 
+                        !button.disabled && 
+                        !button.classList.contains('btn--sold-out')) {
+                        if (${statusInfo.buttonsDisabled}) {
+                            button.disabled = true;
+                            button.style.opacity = '0.6';
+                            button.style.cursor = 'not-allowed';
+                            button.title = '${statusInfo.disabledReason || 'Add to Cart disabled due to order status'}';
+                            button.classList.add('btn--disabled-by-tracking');
+                        }
+                    }
+                });
+            }
+        });
+    });
+    
+    // Start observing
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    console.log('Shopify Button Control: Script loaded successfully');
+})();
+`;
+
+    return new Response(jsCode, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/javascript',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        ...handleCORS(request)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in Shopify button control endpoint:', error.message);
+    return createErrorResponse(
+      'Internal server error',
+      'An unexpected error occurred while processing your request',
+      'INTERNAL_ERROR',
+      500
+    );
+  }
+}
+
+// Button control endpoint - returns HTML with embedded JavaScript
+async function handleButtonControl(request, env) {
+  try {
+    const body = await request.json();
+    const { orderNumber, email } = body;
+
+    // Input validation - at least one field must be provided
+    if (!orderNumber && !email) {
+      return createErrorResponse(
+        'Missing required fields',
+        'Please provide either order number or email address',
+        'MISSING_FIELDS'
+      );
+    }
+
+    // Validate order number if provided
+    if (orderNumber && !validateOrderNumber(orderNumber)) {
+      return createErrorResponse(
+        'Invalid order number',
+        'Order number must be 1-50 characters and contain only letters, numbers, hyphens, underscores, and #',
+        'INVALID_ORDER_NUMBER'
+      );
+    }
+
+    // Validate email if provided
+    if (email && !validateEmail(email)) {
+      return createErrorResponse(
+        'Invalid email address',
+        'Please provide a valid email address',
+        'INVALID_EMAIL'
+      );
+    }
+
+    const order = await getOrder(orderNumber, email, env);
+    
+    if (!order) {
+      const searchCriteria = [];
+      if (orderNumber) searchCriteria.push('order number');
+      if (email) searchCriteria.push('email');
+      
+      return createErrorResponse(
+        'Order not found',
+        `No order found with the provided ${searchCriteria.join(' and ')}`,
+        'ORDER_NOT_FOUND',
+        404
+      );
+    }
+
+    const statusInfo = determineOrderStatus(order);
+    
+    // Create HTML response with embedded JavaScript
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Order Status - Button Control</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status-info { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .button-control { background: #e8f4fd; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .success { color: #28a745; }
+        .warning { color: #ffc107; }
+        .error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="status-info">
+        <h3>Order Status</h3>
+        <p><strong>Order Number:</strong> ${order.name.replace('#', '')}</p>
+        <p><strong>Status:</strong> <span class="${statusInfo.buttonsDisabled ? 'warning' : 'success'}">${statusInfo.status}</span></p>
+        ${statusInfo.trackingNumber ? `<p><strong>Tracking Number:</strong> ${statusInfo.trackingNumber}</p>` : ''}
+        <p><strong>Order Date:</strong> ${new Date(order.created_at).toLocaleString()}</p>
+        ${statusInfo.deliveredAt ? `<p><strong>Delivered At:</strong> ${new Date(statusInfo.deliveredAt).toLocaleString()}</p>` : ''}
+    </div>
+    
+    <div class="button-control">
+        <h3>Button Control Status</h3>
+        <p><strong>Buttons Disabled:</strong> <span class="${statusInfo.buttonsDisabled ? 'error' : 'success'}">${statusInfo.buttonsDisabled ? 'YES' : 'NO'}</span></p>
+        ${statusInfo.disabledReason ? `<p><strong>Reason:</strong> ${statusInfo.disabledReason}</p>` : ''}
+    </div>
+
+    <script>
+        // This script will run on the page and control buttons
+        (function() {
+            console.log('Order tracking button control script loaded');
+            
+            // Function to disable buttons
+            function disableButtons() {
+                const buttonSelectors = [
+                    // Shopify Add to Cart buttons
+                    '.product-form__cart-submit',
+                    '.btn--full',
+                    '.add-to-cart-btn',
+                    'button[name="add"]',
+                    'input[name="add"]',
+                    '.product-form__item--submit button',
+                    '.btn-theme',
+                    '.btn--primary',
+                    '.btn--secondary',
+                    // Common Shopify selectors
+                    '.product-form__buttons button',
+                    '.product-form__item button[type="submit"]',
+                    '.product-single__add-to-cart',
+                    '.add-to-cart',
+                    '.btn-add-to-cart',
+                    // Checkout buttons (secondary)
+                    '.btn-cart-checkout',
+                    '.js-cart-btn-checkout', 
+                    '.btn-checkout',
+                    '.checkout-btn',
+                    'button[name="checkout"]',
+                    'input[name="checkout"]'
+                ];
+                
+                let disabledCount = 0;
+                
+                buttonSelectors.forEach(selector => {
+                    const buttons = document.querySelectorAll(selector);
+                    buttons.forEach(button => {
+                        if (!button.disabled) {
+                            button.disabled = true;
+                            button.style.opacity = '0.6';
+                            button.style.cursor = 'not-allowed';
+                            button.title = '${statusInfo.disabledReason || 'Button disabled due to order status'}';
+                            disabledCount++;
+                        }
+                    });
+                });
+                
+                console.log('Disabled ' + disabledCount + ' buttons');
+                return disabledCount;
+            }
+            
+            // Function to enable buttons
+            function enableButtons() {
+                const buttonSelectors = [
+                    // Shopify Add to Cart buttons
+                    '.product-form__cart-submit',
+                    '.btn--full',
+                    '.add-to-cart-btn',
+                    'button[name="add"]',
+                    'input[name="add"]',
+                    '.product-form__item--submit button',
+                    '.btn-theme',
+                    '.btn--primary',
+                    '.btn--secondary',
+                    // Common Shopify selectors
+                    '.product-form__buttons button',
+                    '.product-form__item button[type="submit"]',
+                    '.product-single__add-to-cart',
+                    '.add-to-cart',
+                    '.btn-add-to-cart',
+                    // Checkout buttons (secondary)
+                    '.btn-cart-checkout',
+                    '.js-cart-btn-checkout', 
+                    '.btn-checkout',
+                    '.checkout-btn',
+                    'button[name="checkout"]',
+                    'input[name="checkout"]'
+                ];
+                
+                let enabledCount = 0;
+                
+                buttonSelectors.forEach(selector => {
+                    const buttons = document.querySelectorAll(selector);
+                    buttons.forEach(button => {
+                        if (button.disabled && button.title.includes('Button disabled due to order status')) {
+                            button.disabled = false;
+                            button.style.opacity = '1';
+                            button.style.cursor = 'pointer';
+                            button.title = '';
+                            enabledCount++;
+                        }
+                    });
+                });
+                
+                console.log('Enabled ' + enabledCount + ' buttons');
+                return enabledCount;
+            }
+            
+            // Control buttons based on order status
+            if (${statusInfo.buttonsDisabled}) {
+                disableButtons();
+            } else {
+                enableButtons();
+            }
+            
+            // Expose functions globally for manual control
+            window.orderTrackingControl = {
+                disableButtons: disableButtons,
+                enableButtons: enableButtons,
+                orderStatus: '${statusInfo.status}',
+                buttonsDisabled: ${statusInfo.buttonsDisabled}
+            };
+            
+            // Show notification
+            if (${statusInfo.buttonsDisabled}) {
+                const notification = document.createElement('div');
+                notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #ffc107; color: #000; padding: 15px; border-radius: 5px; z-index: 10000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);';
+                notification.innerHTML = '<strong>Order Status:</strong> ${statusInfo.status}<br><small>${statusInfo.disabledReason || 'Add to Cart buttons have been disabled'}</small>';
+                document.body.appendChild(notification);
+                
+                // Auto-remove notification after 5 seconds
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 5000);
+            }
+        })();
+    </script>
+</body>
+</html>`;
+
+    return new Response(html, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html',
+        ...handleCORS(request)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in button control endpoint:', error.message);
+    return createErrorResponse(
+      'Internal server error',
+      'An unexpected error occurred while processing your request',
       'INTERNAL_ERROR',
       500
     );
@@ -369,7 +1377,9 @@ async function handleTrack(request, env) {
         trackingNumber: statusInfo.trackingNumber,
         orderDate: order.created_at,
         lastUpdated: new Date().toISOString(),
-        deliveredAt: statusInfo.deliveredAt
+        deliveredAt: statusInfo.deliveredAt,
+        buttonsDisabled: statusInfo.buttonsDisabled,
+        disabledReason: statusInfo.disabledReason
       }
     });
 
@@ -440,6 +1450,18 @@ export default {
       
       if (path === '/track' && method === 'POST') {
         return await handleTrack(request, env);
+      }
+      
+      if (path === '/button-control' && method === 'POST') {
+        return await handleButtonControl(request, env);
+      }
+      
+      if (path === '/shopify-button-control' && method === 'POST') {
+        return await handleShopifyButtonControl(request, env);
+      }
+      
+      if (path === '/inject' && method === 'POST') {
+        return await handleCodeInjection(request, env);
       }
 
       // 404 handler

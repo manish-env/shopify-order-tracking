@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify Button Control - Iframe Integration</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .integration-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #007cba;
+        }
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #fff;
+            border: 2px dashed #dee2e6;
+            border-radius: 6px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        input[type="text"]:focus, input[type="email"]:focus {
+            outline: none;
+            border-color: #007cba;
+            box-shadow: 0 0 0 3px rgba(0, 124, 186, 0.1);
+        }
+        .btn {
+            background: #007cba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn:hover {
+            background: #005a87;
+            transform: translateY(-1px);
+        }
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.6;
+        }
+        .btn--secondary {
+            background: #6c757d;
+        }
+        .btn--secondary:hover {
+            background: #545b62;
+        }
+        .iframe-container {
+            margin: 20px 0;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .demo-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .demo-buttons button {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛒 Shopify Button Control - Iframe Integration</h1>
+            <p>Inject button control code through API without modifying Shopify theme files</p>
+        </div>
+
+        <div class="integration-section">
+            <h2>🚀 How It Works</h2>
+            <p>This solution uses an <strong>iframe</strong> to inject the button control script into any page without requiring any modifications to your Shopify theme. The iframe loads a page from your API that contains the button control JavaScript, which then controls buttons on the parent page.</p>
+            
+            <div class="alert alert-info">
+                <strong>No Theme Modifications Required:</strong> This method works by loading an iframe that injects JavaScript into the parent page, completely bypassing the need to modify any Shopify theme files.
+            </div>
+        </div>
+
+        <div class="integration-section">
+            <h2>📋 Integration Methods</h2>
+            
+            <h3>Method 1: Direct Iframe Integration</h3>
+            <p>Add this HTML to any Shopify page (via page builder, app, or custom content):</p>
+            
+            <div class="code-block">
+&lt;!-- Add this to any Shopify page --&gt;
+&lt;iframe 
+    id="button-control-iframe"
+    src="https://your-api.workers.dev/inject?order=12345&email=customer@example.com"
+    style="width: 1px; height: 1px; border: none; position: absolute; left: -9999px;"
+    onload="injectButtonControl()"&gt;
+&lt;/iframe&gt;
+
+&lt;script&gt;
+function injectButtonControl() {
+    const iframe = document.getElementById('button-control-iframe');
+    if (iframe && iframe.contentWindow) {
+        // The iframe will automatically inject the button control script
+        console.log('Button control iframe loaded');
+    }
+}
+&lt;/script&gt;
+            </div>
+
+            <h3>Method 2: Dynamic Iframe Loading</h3>
+            <p>Load the iframe dynamically based on URL parameters or user input:</p>
+            
+            <div class="code-block">
+&lt;script&gt;
+// Load button control iframe dynamically
+function loadButtonControlIframe(orderNumber, email) {
+    // Remove existing iframe
+    const existingIframe = document.getElementById('button-control-iframe');
+    if (existingIframe) {
+        existingIframe.remove();
+    }
+    
+    // Create new iframe
+    const iframe = document.createElement('iframe');
+    iframe.id = 'button-control-iframe';
+    iframe.src = \`https://your-api.workers.dev/inject?order=\${orderNumber}&email=\${email}\`;
+    iframe.style.cssText = 'width: 1px; height: 1px; border: none; position: absolute; left: -9999px;';
+    iframe.onload = function() {
+        console.log('Button control iframe loaded for order:', orderNumber);
+    };
+    
+    document.body.appendChild(iframe);
+}
+
+// Example usage
+if (window.location.search.includes('order=')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderNumber = urlParams.get('order');
+    const email = urlParams.get('email');
+    if (orderNumber) {
+        loadButtonControlIframe(orderNumber, email);
+    }
+}
+&lt;/script&gt;
+            </div>
+
+            <h3>Method 3: Shopify App Integration</h3>
+            <p>For Shopify apps, you can inject this iframe programmatically:</p>
+            
+            <div class="code-block">
+// In your Shopify app's frontend code
+function injectButtonControlApp(orderNumber, email) {
+    const iframe = document.createElement('iframe');
+    iframe.src = \`https://your-api.workers.dev/inject?order=\${orderNumber}&email=\${email}\`;
+    iframe.style.cssText = 'width: 1px; height: 1px; border: none; position: absolute; left: -9999px;';
+    iframe.onload = function() {
+        console.log('Button control injected via app');
+    };
+    document.body.appendChild(iframe);
+}
+
+// Call when app loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Get order info from your app's data
+    const orderNumber = window.appData?.orderNumber;
+    const email = window.appData?.email;
+    
+    if (orderNumber || email) {
+        injectButtonControlApp(orderNumber, email);
+    }
+});
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🧪 Live Demo</h2>
+            <p>Test the iframe integration with sample data:</p>
+            
+            <div class="form-group">
+                <label for="demoOrderNumber">Order Number:</label>
+                <input type="text" id="demoOrderNumber" placeholder="Enter order number (e.g., 12345)" value="12345">
+            </div>
+            
+            <div class="form-group">
+                <label for="demoEmail">Email:</label>
+                <input type="email" id="demoEmail" placeholder="Enter email address" value="customer@example.com">
+            </div>
+            
+            <button class="btn" onclick="loadIframe()">Load Button Control Iframe</button>
+            <button class="btn btn--secondary" onclick="testButtons()">Test Buttons</button>
+            <button class="btn btn--secondary" onclick="resetButtons()">Reset Buttons</button>
+            
+            <div id="demoStatus" class="alert alert-info" style="display: none;">
+                <div id="demoStatusContent"></div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🎮 Demo Buttons</h2>
+            <p>These buttons will be controlled by the iframe (simulating Shopify Add to Cart buttons):</p>
+            
+            <div class="demo-buttons">
+                <button class="btn product-form__cart-submit">Add to Cart</button>
+                <button class="btn btn--full">Add to Cart (Full)</button>
+                <button class="btn" name="add">Add to Cart (Named)</button>
+                <button class="btn btn--primary">Primary Button</button>
+                <button class="btn btn--secondary">Secondary Button</button>
+                <button class="btn btn-theme">Theme Button</button>
+                <button class="btn add-to-cart">Add to Cart</button>
+                <button class="btn" name="checkout">Checkout</button>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>📱 Iframe Preview</h2>
+            <p>This shows what the iframe loads (the button control injection page):</p>
+            
+            <div class="iframe-container">
+                <iframe id="previewIframe" src="about:blank"></iframe>
+            </div>
+        </div>
+
+        <div class="integration-section">
+            <h2>⚙️ Configuration</h2>
+            
+            <div class="alert alert-info">
+                <strong>API Endpoints:</strong>
+                <ul>
+                    <li><code>POST /inject</code> - Returns HTML page with button control injection</li>
+                    <li><code>POST /shopify-button-control</code> - Returns JavaScript for direct integration</li>
+                    <li><code>POST /track</code> - Returns JSON with order status and button state</li>
+                </ul>
+            </div>
+            
+            <div class="alert alert-warning">
+                <strong>Important:</strong> Replace <code>https://your-api.workers.dev</code> with your actual API domain after deployment.
+            </div>
+        </div>
+
+        <div class="integration-section">
+            <h2>📱 Usage Examples</h2>
+            
+            <h3>Basic Iframe Integration</h3>
+            <div class="code-block">
+&lt;!-- Add to any Shopify page --&gt;
+&lt;iframe 
+    src="https://your-api.workers.dev/inject?order=12345&email=customer@example.com"
+    style="width: 1px; height: 1px; border: none; position: absolute; left: -9999px;"
+    onload="console.log('Button control loaded')"&gt;
+&lt;/iframe&gt;
+            </div>
+            
+            <h3>With URL Parameters</h3>
+            <div class="code-block">
+&lt;script&gt;
+// Check for order in URL parameters
+const urlParams = new URLSearchParams(window.location.search);
+const orderNumber = urlParams.get('order');
+const email = urlParams.get('email');
+
+if (orderNumber) {
+    const iframe = document.createElement('iframe');
+    iframe.src = \`https://your-api.workers.dev/inject?order=\${orderNumber}&email=\${email}\`;
+    iframe.style.cssText = 'width: 1px; height: 1px; border: none; position: absolute; left: -9999px;';
+    document.body.appendChild(iframe);
+}
+&lt;/script&gt;
+            </div>
+            
+            <h3>Manual Control</h3>
+            <div class="code-block">
+// After iframe loads, you can manually control buttons
+if (window.shopifyOrderTracking) {
+    window.shopifyOrderTracking.disableButtons();
+    window.shopifyOrderTracking.enableButtons();
+}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Demo functionality
+        const API_BASE_URL = 'https://your-api.workers.dev'; // Replace with your actual API URL
+        
+        function loadIframe() {
+            const orderNumber = document.getElementById('demoOrderNumber').value;
+            const email = document.getElementById('demoEmail').value;
+            
+            if (!orderNumber && !email) {
+                alert('Please enter either order number or email');
+                return;
+            }
+            
+            // Create iframe
+            const iframe = document.createElement('iframe');
+            iframe.id = 'button-control-iframe';
+            iframe.src = `${API_BASE_URL}/inject?order=${orderNumber}&email=${email}`;
+            iframe.style.cssText = 'width: 1px; height: 1px; border: none; position: absolute; left: -9999px;';
+            iframe.onload = function() {
+                showDemoStatus('Button control iframe loaded successfully!', 'success');
+                console.log('Button control iframe loaded');
+            };
+            
+            // Remove existing iframe
+            const existingIframe = document.getElementById('button-control-iframe');
+            if (existingIframe) {
+                existingIframe.remove();
+            }
+            
+            document.body.appendChild(iframe);
+            
+            // Also load in preview iframe
+            document.getElementById('previewIframe').src = `${API_BASE_URL}/inject?order=${orderNumber}&email=${email}`;
+        }
+        
+        function testButtons() {
+            if (window.shopifyOrderTracking) {
+                window.shopifyOrderTracking.disableButtons();
+                showDemoStatus('Buttons disabled via iframe control!', 'warning');
+            } else {
+                showDemoStatus('Button control not loaded. Load iframe first.', 'error');
+            }
+        }
+        
+        function resetButtons() {
+            if (window.shopifyOrderTracking) {
+                window.shopifyOrderTracking.enableButtons();
+                showDemoStatus('Buttons enabled via iframe control!', 'success');
+            } else {
+                // Manual reset
+                const buttonSelectors = [
+                    '.product-form__cart-submit',
+                    '.btn--full',
+                    'button[name="add"]',
+                    '.btn--primary',
+                    '.btn--secondary',
+                    '.btn-theme',
+                    '.add-to-cart',
+                    'button[name="checkout"]'
+                ];
+                
+                buttonSelectors.forEach(selector => {
+                    const buttons = document.querySelectorAll(selector);
+                    buttons.forEach(button => {
+                        button.disabled = false;
+                        button.style.opacity = '1';
+                        button.style.cursor = 'pointer';
+                        button.title = '';
+                        button.classList.remove('btn--disabled-by-tracking');
+                    });
+                });
+                
+                showDemoStatus('Buttons manually reset!', 'success');
+            }
+        }
+        
+        function showDemoStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('demoStatus');
+            const contentDiv = document.getElementById('demoStatusContent');
+            
+            contentDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            statusDiv.style.display = 'block';
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Iframe Integration Demo loaded');
+            console.log('Make sure to update API_BASE_URL with your actual API domain');
+        });
+    </script>
+</body>
+</html>
